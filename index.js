@@ -1,53 +1,103 @@
-const express = require ("express");
-
-const userDb = require ('./dataBase/users');
+const express = require("express");
+const fs = require("fs/promises");
+const path = require("path");
 
 const server = express();
 
-// для того щоб можна було додати джейсонку у БД (щоб зчитувались дані при методах пост, пут і т.д.)
 server.use(express.json());
-server.use(express.urlencoded ({extended: true}));
+server.use(express.urlencoded({extended: true}));
 
-server.get("/", (req, res)=>{
-    res.json('Welcome');
-  });
+ const reader = async () => {
+    const buffer = await fs.readFile(path.join(__dirname, 'dataBase', 'users.json'));
+    return JSON.parse(buffer.toString());
+};
+const writer = async (users) => {
+    await fs.writeFile(path.join(__dirname, 'dataBase', 'users.json'), JSON.stringify(users));
+};
 
-//виводимо ісіх юзерів з БД
-server.get("/users", (req, res)=>{
-    console.log("Users endpoint");
-    // res.json({user: "Mariia"});
-    // res.end('Only string data in this case');
-    // res.status(200).json('It`s OK');
-    // res.sendFile('./pathToFile');
-    res.json(userDb);
-});
+//виводимо усіх юзерів з БД
+server.get("/users", async (req, res) => {
 
-//виводимо юзера за його ІД
-server.get("/users/:userId", (req, res)=>{
-    console.log(req.params);
-    const {userId} = req.params;
-    res.json(userDb[userId]);
+    const users = await reader();
+
+    res.json(users);
 });
 
 //додаємо юзера у БД
-server.post("/users", (req, res)=>{
-    const newUser = req.body;
-    console.log(newUser);
+server.post("/users", async (req, res) => {
+    const userInfo = req.body;
 
-    userDb.push(newUser);
-    res.status(201).json("Created");
+    if (userInfo.name.length < 2 || typeof userInfo.name !== 'string'){
+        return res.status(400).json('User name is not correct')
+    }
+
+    if (userInfo.age < 1 || Number.isNaN(+userInfo.age) ){
+        return res.status(400).json('Wrong user age')
+    }
+
+    const users = await reader();
+
+    const newUser = {
+        name: userInfo.name,
+        age: userInfo.age,
+        id: users[users.length - 1].id + 1}
+    users.push(newUser);
+
+    await writer(users);
+
+    res.json(users);
+});
+
+//виводимо юзера за його ІД
+server.get("/users/:userId", async (req, res) => {
+    console.log(req.params);
+    const {userId} = req.params;
+    const users = await reader();
+
+    const user = users.find((u) => u.id === +userId);
+    if (!user) {
+        return res.status(404).json(`User with Id ${userId} not found`)
+    }
+
+    res.json(user);
 });
 
 //замінюємо (коригуємо) юзера за ІД
-server.put("/users/:userId", (req, res)=>{
-    const updateUser = req.body;
-    const userID = req.params.userId;
+server.put("/users/:userId", async (req, res) => {
+    const newUserInfo = req.body;
+    const {userId} = req.params;
+    const users = await reader();
 
-    userDb[userID]=updateUser;
-    res.json("Updated");
+    const index = users.findIndex((u) => u.id === +userId);
+    if (index === -1) {
+        return res.status(404).json(`User with Id ${userId} not found`)
+    }
+
+    users[index] = {...users[index], ...newUserInfo};
+
+    await writer(users);
+
+    res.status(201).json(users[index]);
+});
+
+//видаляємо юзера за ІД
+server.delete("/users/:userId", async (req, res) => {
+    const {userId} = req.params;
+    const users = await reader();
+    const index = users.findIndex((u) => u.id === +userId);
+
+    if (index === -1) {
+        return res.status(404).json(`User with Id ${userId} not found`)
+    }
+
+    users.splice(index,1);
+
+    await writer(users);
+
+    res.sendStatus(204);
 });
 
 // слухаємо порт
-server.listen(5000, ()=>{
+server.listen(5000, () => {
     console.log("Server listen 5000");
 });
