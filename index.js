@@ -1,24 +1,15 @@
 const express = require("express");
-const fs = require("fs/promises");
-const path = require("path");
+const {fileServices} = require ('./services');
 
 const server = express();
 
 server.use(express.json());
 server.use(express.urlencoded({extended: true}));
 
- const reader = async () => {
-    const buffer = await fs.readFile(path.join(__dirname, 'dataBase', 'users.json'));
-    return JSON.parse(buffer.toString());
-};
-const writer = async (users) => {
-    await fs.writeFile(path.join(__dirname, 'dataBase', 'users.json'), JSON.stringify(users));
-};
-
 //виводимо усіх юзерів з БД
 server.get("/users", async (req, res) => {
 
-    const users = await reader();
+    const users = await fileServices.reader();
 
     res.json(users);
 });
@@ -35,7 +26,7 @@ server.post("/users", async (req, res) => {
         return res.status(400).json('Wrong user age')
     }
 
-    const users = await reader();
+    const users = await fileServices.reader();
 
     const newUser = {
         name: userInfo.name,
@@ -43,7 +34,7 @@ server.post("/users", async (req, res) => {
         id: users[users.length - 1].id + 1}
     users.push(newUser);
 
-    await writer(users);
+    await fileServices.writer(users);
 
     res.json(users);
 });
@@ -52,7 +43,7 @@ server.post("/users", async (req, res) => {
 server.get("/users/:userId", async (req, res) => {
     console.log(req.params);
     const {userId} = req.params;
-    const users = await reader();
+    const users = await fileServices.reader();
 
     const user = users.find((u) => u.id === +userId);
     if (!user) {
@@ -66,7 +57,7 @@ server.get("/users/:userId", async (req, res) => {
 server.put("/users/:userId", async (req, res) => {
     const newUserInfo = req.body;
     const {userId} = req.params;
-    const users = await reader();
+    const users = await fileServices.reader();
 
     const index = users.findIndex((u) => u.id === +userId);
     if (index === -1) {
@@ -75,7 +66,7 @@ server.put("/users/:userId", async (req, res) => {
 
     users[index] = {...users[index], ...newUserInfo};
 
-    await writer(users);
+    await fileServices.writer(users);
 
     res.status(201).json(users[index]);
 });
@@ -83,7 +74,7 @@ server.put("/users/:userId", async (req, res) => {
 //видаляємо юзера за ІД
 server.delete("/users/:userId", async (req, res) => {
     const {userId} = req.params;
-    const users = await reader();
+    const users = await fileServices.reader();
     const index = users.findIndex((u) => u.id === +userId);
 
     if (index === -1) {
@@ -92,7 +83,7 @@ server.delete("/users/:userId", async (req, res) => {
 
     users.splice(index,1);
 
-    await writer(users);
+    await fileServices.writer(users);
 
     res.sendStatus(204);
 });
