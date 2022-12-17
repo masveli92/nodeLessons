@@ -1,46 +1,75 @@
-const userDb = require("../dataBase/users");
+const {fileServices} = require("../services");
+
 module.exports = {
 
 //виводимо ісіх юзерів з БД
-    getAllUsers: (req, res, next) => {
+    getAllUsers: async (req, res, next) => {
         try {
-            res.json(userDb);
-        } catch (e) {
-            next(e);
-        }
-    },
+            const users = await fileServices.reader();
+            res.json(users)
 
-//виводимо юзера за його ІД
-    getUserById: (req, res, next) => {
-        try {
-            // res.json(userDb[userId]);
-            res.json(req.user);
         } catch (e) {
             next(e);
         }
     },
 
 //додаємо юзера у БД
-    createUser: (req, res, next) => {
+    createUser: async (req, res, next) => {
         try {
-            const newUser = req.body;
-            console.log(newUser);
+            const userInfo = req.body;
 
-            userDb.push(newUser);
-            res.status(201).json("Created");
+            const users = await fileServices.reader()
+
+            const newUser = {
+                name: userInfo.name,
+                age: userInfo.age,
+                id: users[users.length - 1].id + 1
+            }
+            users.push(newUser);
+
+            await fileServices.writer(users);
+
+            res.status(201).json(users);
+        } catch (e) {
+            next(e);
+        }
+    },
+
+//виводимо юзера за його ІД
+    getUserById: async (req, res, next) => {
+        try {
+            res.json(req.user);
         } catch (e) {
             next(e);
         }
     },
 
 //замінюємо (коригуємо) юзера за ІД
-    updateUser: (req, res, next) => {
+    updateUser: async (req, res, next) => {
         try {
-            const updateUser = req.body;
-            const userID = req.params.userId;
+            const {user, users, body} = req;
 
-            userDb[userID] = updateUser;
-            res.json("Updated");
+            const index = users.findIndex((u) => u.id === user.id);
+            users[index] = {...users[index], ...body};
+
+            await fileServices.writer(users);
+
+            res.status(201).json(users[index]);
+        } catch (e) {
+            next(e);
+        }
+    },
+
+    deleteUser: async (req, res, next) => {
+        try {
+            const {user, users} = req;
+
+            const index = users.findIndex((u) => u.id === user.id);
+            users.splice(index, 1);
+
+            await fileServices.writer(users);
+
+            res.sendStatus(204);
         } catch (e) {
             next(e);
         }
