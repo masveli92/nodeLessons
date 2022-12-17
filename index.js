@@ -3,7 +3,6 @@ require('dotenv').config()
 
 const configs = require('./config/config');
 const userRouter = require('./router/user.router');
-const {log} = require("debug");
 
 const app = express();
 
